@@ -1044,11 +1044,17 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
 
   logger.debug(`[TmdbMovieMeta] rpdb enabled: ${isRPDBEnabled(config)}`);
 
-  // Parse trailers once and filter by language with fallback
+  // Parse trailers once and filter by language with intelligent fallback
   const allTrailers = Utils.parseTrailers(movieData.videos);
   const allTrailerStreams = Utils.parseTrailerStream(movieData.videos);
   const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
   const filteredTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === langCode);
+  
+  // Intelligent fallback: user language -> English -> all trailers
+  const englishTrailers = allTrailers.filter(trailer => trailer.lang === 'en');
+  const englishTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === 'en');
+  const finalTrailers = filteredTrailers.length > 0 ? filteredTrailers : (englishTrailers.length > 0 ? englishTrailers : allTrailers);
+  const finalTrailerStreams = filteredTrailerStreams.length > 0 ? filteredTrailerStreams : (englishTrailerStreams.length > 0 ? englishTrailerStreams : allTrailerStreams);
 
   return {
     id: external_ids?.imdb_id || allIds?.imdbId || stremioId,
@@ -1069,9 +1075,9 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
     poster: (config.apiKeys?.rpdb && isRPDBEnabled(config)) ? posterProxyUrl : poster,
     background: background,
     logo: processLogo(logoUrl),
-    // Include trailers with matching language code. If none match, return all trailers as fallback
-    trailers: filteredTrailers.length > 0 ? filteredTrailers : allTrailers,
-    trailerStreams: filteredTrailerStreams.length > 0 ? filteredTrailerStreams : allTrailerStreams,
+    // Intelligent trailer fallback: user language -> English -> all trailers
+    trailers: finalTrailers,
+    trailerStreams: finalTrailerStreams,
     links: links,
     behaviorHints: { defaultVideoId: kitsuId && idProvider === 'kitsu' ? `kitsu:${kitsuId}` : imdbId || stremioId, hasScheduledVideos: false },
     app_extras: { cast: Utils.parseCast(credits, castCount), directors: directorDetails, writers: writerDetails, watchProviders: watchProviders, releaseDates: movieData.release_dates, certification: certification }
@@ -1459,9 +1465,13 @@ async function buildTmdbSeriesResponse(stremioId, seriesData, language, config, 
     links.unshift(certificationLink);
   }
 
-  // Parse trailers once and filter by language with fallback
+  // Parse trailers once and filter by language with intelligent fallback
   const allTrailers = Utils.parseTrailers(trailers);
   const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
+  
+  // Intelligent fallback: user language -> English -> all trailers
+  const englishTrailers = allTrailers.filter(trailer => trailer.lang === 'en');
+  const finalTrailers = filteredTrailers.length > 0 ? filteredTrailers : (englishTrailers.length > 0 ? englishTrailers : allTrailers);
 
   const meta = {
     id: external_ids?.imdb_id || allIds?.imdbId || stremioId,
@@ -1479,7 +1489,7 @@ async function buildTmdbSeriesResponse(stremioId, seriesData, language, config, 
     poster: (config.apiKeys?.rpdb && isRPDBEnabled(config)) ? posterProxyUrl : poster,
     background: background,
     logo: logoUrl,
-    trailers: filteredTrailers.length > 0 ? filteredTrailers : allTrailers,
+    trailers: finalTrailers,
     links: links,
     videos: videos,
     behaviorHints: {
