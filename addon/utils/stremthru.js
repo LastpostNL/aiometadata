@@ -2,6 +2,7 @@ const { request } = require("undici");
 const { cacheWrapMetaSmart } = require("../lib/getCache");
 const { getMeta } = require("../lib/getMeta");
 const Utils = require("./parseProps");
+const { isRPDBEnabled } = require("./parseProps");
 const idMapper = require("../lib/id-mapper");
 const imdb = require("../lib/imdb");
 const { getImdbRating } = require("../lib/getImdbRating");
@@ -51,11 +52,12 @@ async function _processAnimeItem(item, provider, id, language, config, includeVi
     return null; // Let the main loop handle the fallback
   }
 
-  const imdbId = mapping.imdb_id;
+  const malId = mapping.mal_id;
   const isMovie = item.type === 'movie';
+  const imdbId = isMovie ? idMapper.getTraktAnimeMovieByMalId(malId)?.externals.imdb : mapping.imdb_id;
 
 
-  if(config.mal?.useImdbIdForCatalogAndSearch && item.type === 'series' && mapping.imdb_id){
+  if(config.mal?.useImdbIdForCatalogAndSearch && item.type === 'series' && imdbId){
     return (await cacheWrapMetaSmart(config.userUUID, imdbId, async () => {
       return await getMeta(item.type, language, imdbId, config, config.userUUID, includeVideos);
     }, undefined, { enableErrorCaching: true, maxRetries: 2 }, item.type, includeVideos))?.meta || null;
@@ -100,21 +102,8 @@ async function _processAnimeItem(item, provider, id, language, config, includeVi
  * @private
  */
 async function _processStandardItem(item, provider, language, config, includeVideos = false) {
+  let stremioId = item.id;
   const result = await cacheWrapMetaSmart(config.userUUID, item.id, async () => {
-      let stremioId = item.id;
-      //  if (preferredProvider === 'tvdb' && allIds?.tvdbId) {
-      //      stremioId = `tvdb:${allIds.tvdbId}`;
-      //  } else if (preferredProvider === 'tvmaze' && allIds?.tvmazeId) {
-      //      stremioId = `tvmaze:${allIds.tvmazeId}`;
-      //  } else if (preferredProvider === 'imdb' && allIds?.imdbId) {
-      //      stremioId = allIds.imdbId;
-      //  } else if (preferredProvider === 'tmdb' && allIds?.tmdbId) {
-       //     stremioId = `tmdb:${allIds.tmdbId}`;
-      //  }
-      //}
-      
-      // Use the potentially translated ID to get the meta.
-      // Note: Your getMeta function must be able to handle these different ID formats.
       return await getMeta(item.type, language, stremioId, config, config.userUUID, includeVideos);
   }, undefined, { enableErrorCaching: true, maxRetries: 2 }, item.type, includeVideos);
   
@@ -131,7 +120,9 @@ async function _processStandardItem(item, provider, language, config, includeVid
  */
 function _createFallbackMeta(item, language, config) {
     const fallbackPosterUrl = item.poster || `${host}/missing_poster.png`;
-    const posterProxyUrl = `${host}/poster/${item.type}/${item.id}?fallback=${encodeURIComponent(fallbackPosterUrl)}&lang=${language}&key=${config.apiKeys?.rpdb}`;
+    const posterProxyUrl = (config.apiKeys?.rpdb && isRPDBEnabled(config))
+        ? `${host}/poster/${item.type}/${item.id}?fallback=${encodeURIComponent(fallbackPosterUrl)}&lang=${language}&key=${config.apiKeys?.rpdb}`
+        : fallbackPosterUrl;
     
     return {
         id: item.id,

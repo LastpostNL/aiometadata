@@ -19,6 +19,7 @@ interface ConfigContextType {
   setAuth: React.Dispatch<React.SetStateAction<AuthState>>;
   hasBuiltInTvdb: boolean;
   hasBuiltInTmdb: boolean;
+  catalogTTL: number;
   isLoading: boolean;
 }
 
@@ -126,6 +127,7 @@ const initialConfig: AppConfig = {
       source: c.source,
       enabled: c.isEnabledByDefault || false,
       showInHome: c.showOnHomeByDefault || false,
+      enableRPDB: true, // Default to enabled for new catalogs
     })),
   search: {
     enabled: true,
@@ -157,6 +159,7 @@ const defaultCatalogs = allCatalogDefinitions.map(c => ({
   source: c.source,
   enabled: c.isEnabledByDefault || false,
   showInHome: c.showOnHomeByDefault || false,
+  enableRPDB: true, // Default to enabled for new catalogs
 }));
 
 
@@ -166,11 +169,11 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<AuthState>({ authenticated: false, userUUID: null, password: null });
   const [config, setConfig] = useState<AppConfig>(() => {
     if (preloadedConfig) {
-      let hydratedCatalogs = [...defaultCatalogs];
+      let hydratedCatalogs: CatalogConfig[] = [...defaultCatalogs] as CatalogConfig[];
       
       if (preloadedConfig.catalogs && preloadedConfig.catalogs.length > 0) {
           const userCatalogSettings = new Map(
-              preloadedConfig.catalogs.map(c => [`${c.id}-${c.type}`, { enabled: c.enabled, showInHome: c.showInHome }])
+              preloadedConfig.catalogs.map(c => [`${c.id}-${c.type}`, { enabled: c.enabled, showInHome: c.showInHome, enableRPDB: c.enableRPDB }])
           );
 
           // Always merge in new catalogs from allCatalogDefinitions
@@ -185,9 +188,9 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
           hydratedCatalogs = mergedCatalogs.map(defaultCatalog => {
               const key = `${defaultCatalog.id}-${defaultCatalog.type}`;
               if (userCatalogSettings.has(key)) {
-                  return { ...defaultCatalog, ...userCatalogSettings.get(key) };
+                  return { ...defaultCatalog, ...userCatalogSettings.get(key) } as CatalogConfig;
               }
-              return defaultCatalog;
+              return defaultCatalog as CatalogConfig;
           });
 
           // Remove the old forEach that pushed missing userCatalogs (now handled above)
@@ -248,6 +251,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasBuiltInTvdb, setHasBuiltInTvdb] = useState(false);
   const [hasBuiltInTmdb, setHasBuiltInTmdb] = useState(false);
+  const [catalogTTL, setCatalogTTL] = useState(86400); // Default to 24 hours
 
   // --- THIS IS THE CORRECTED EFFECT ---
   useEffect(() => {
@@ -260,6 +264,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         setAddonVersion(envApiKeys.addonVersion || ' ');
         setHasBuiltInTvdb(!!envApiKeys.hasBuiltInTvdb);
         setHasBuiltInTmdb(!!envApiKeys.hasBuiltInTmdb);
+        setCatalogTTL(envApiKeys.catalogTTL || 86400);
 
         // Layer in the server keys with the correct priority.
         // We use `preloadedConfig` because it holds the user's saved data.
@@ -304,7 +309,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ConfigContext.Provider value={{ config, setConfig, addonVersion, resetConfig, auth, setAuth, hasBuiltInTvdb, hasBuiltInTmdb, isLoading }}>
+    <ConfigContext.Provider value={{ config, setConfig, addonVersion, resetConfig, auth, setAuth, hasBuiltInTvdb, hasBuiltInTmdb, catalogTTL, isLoading }}>
       {children}
     </ConfigContext.Provider>
   );
