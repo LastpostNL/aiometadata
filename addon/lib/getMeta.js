@@ -1075,17 +1075,18 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
 
   logger.debug(`[TmdbMovieMeta] rpdb enabled: ${isRPDBEnabled(config)}`);
 
-  // Parse trailers once and filter by language with intelligent fallback
+  // Parse trailers once and apply intelligent fallback
+  // Priority: English (most common) -> User's language -> All trailers
   const allTrailers = Utils.parseTrailers(movieData.videos);
   const allTrailerStreams = Utils.parseTrailerStream(movieData.videos);
-  const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
-  const filteredTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === langCode);
-  
-  // Intelligent fallback: user language -> English -> all trailers
   const englishTrailers = allTrailers.filter(trailer => trailer.lang === 'en');
   const englishTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === 'en');
-  const finalTrailers = filteredTrailers.length > 0 ? filteredTrailers : (englishTrailers.length > 0 ? englishTrailers : allTrailers);
-  const finalTrailerStreams = filteredTrailerStreams.length > 0 ? filteredTrailerStreams : (englishTrailerStreams.length > 0 ? englishTrailerStreams : allTrailerStreams);
+  const userLangTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
+  const userLangTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === langCode);
+  
+  // Prefer English trailers (most reliable), fallback to user language, then all
+  const finalTrailers = englishTrailers.length > 0 ? englishTrailers : (userLangTrailers.length > 0 ? userLangTrailers : allTrailers);
+  const finalTrailerStreams = englishTrailerStreams.length > 0 ? englishTrailerStreams : (userLangTrailerStreams.length > 0 ? userLangTrailerStreams : allTrailerStreams);
 
   return {
     id: external_ids?.imdb_id || allIds?.imdbId || stremioId,
@@ -1106,7 +1107,7 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
     poster: (config.apiKeys?.rpdb && isRPDBEnabled(config)) ? posterProxyUrl : poster,
     background: background,
     logo: processLogo(logoUrl),
-    // Intelligent trailer fallback: user language -> English -> all trailers
+    // Always show trailers: English (most common) -> User's language -> All available
     trailers: finalTrailers,
     trailerStreams: finalTrailerStreams,
     links: links,
@@ -1496,13 +1497,14 @@ async function buildTmdbSeriesResponse(stremioId, seriesData, language, config, 
     links.unshift(certificationLink);
   }
 
-  // Parse trailers once and filter by language with intelligent fallback
+  // Parse trailers once and apply intelligent fallback
+  // Priority: English (most common) -> User's language -> All trailers
   const allTrailers = Utils.parseTrailers(trailers);
-  const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
-  
-  // Intelligent fallback: user language -> English -> all trailers
   const englishTrailers = allTrailers.filter(trailer => trailer.lang === 'en');
-  const finalTrailers = filteredTrailers.length > 0 ? filteredTrailers : (englishTrailers.length > 0 ? englishTrailers : allTrailers);
+  const userLangTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
+  
+  // Prefer English trailers (most reliable), fallback to user language, then all
+  const finalTrailers = englishTrailers.length > 0 ? englishTrailers : (userLangTrailers.length > 0 ? userLangTrailers : allTrailers);
 
   const meta = {
     id: external_ids?.imdb_id || allIds?.imdbId || stremioId,
