@@ -966,6 +966,9 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
   const tvdbId = allIds?.tvdbId;
   const castCount = config.castCount === 0 ? undefined : config.castCount;
   
+  // Extract language code for filtering (e.g., "en" from "en-US")
+  const langCode = language.split('-')[0];
+  
   // Get artwork based on art provider preference
   const selectedPoster = Utils.selectTmdbImageByLang(images?.posters, config);
   const tmdbPosterUrl = selectedPoster?.file_path ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${selectedPoster?.file_path}` : poster_path ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${poster_path}` : `${host}/missing_poster.png`;
@@ -998,9 +1001,6 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
   const posterProxyUrl = `${host}/poster/movie/tmdb:${movieData.id}?fallback=${encodeURIComponent(poster)}&lang=${language}&key=${config.apiKeys?.rpdb}`;
   const kitsuId = allIds?.kitsuId;
   const idProvider = config.providers?.movie || 'imdb';
-  
-  // Extract language code for trailer filtering (e.g., "en" from "en-US")
-  const langCode = language.split('-')[0];
 
   const directorLinks = !credits || !Array.isArray(credits.crew) ? [] : credits.crew.filter((x) => x.job === "Director").map(d => ({
     name: d.name,
