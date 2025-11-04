@@ -971,7 +971,7 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
   const tmdbPosterUrl = selectedPoster?.file_path ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${selectedPoster?.file_path}` : poster_path ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${poster_path}` : `${host}/missing_poster.png`;
   const selectedBg = images?.backdrops?.find(b => b.iso_639_1 === 'xx')
     || images?.backdrops?.find(b => b.iso_639_1 === null)
-    || images?.backdrops?.find(b => b.iso_639_1 === language.split('-')[0])
+    || images?.backdrops?.find(b => b.iso_639_1 === langCode)
     || images?.backdrops?.[0];
   const tmdbBackgroundUrl = selectedBg?.file_path ? `https://image.tmdb.org/t/p/original${selectedBg?.file_path}` : backdrop_path ? `https://image.tmdb.org/t/p/original${backdrop_path}` : null;
   const selectedLogo = Utils.selectTmdbImageByLang(images?.logos, config);
@@ -998,6 +998,9 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
   const posterProxyUrl = `${host}/poster/movie/tmdb:${movieData.id}?fallback=${encodeURIComponent(poster)}&lang=${language}&key=${config.apiKeys?.rpdb}`;
   const kitsuId = allIds?.kitsuId;
   const idProvider = config.providers?.movie || 'imdb';
+  
+  // Extract language code for trailer filtering (e.g., "en" from "en-US")
+  const langCode = language.split('-')[0];
 
   const directorLinks = !credits || !Array.isArray(credits.crew) ? [] : credits.crew.filter((x) => x.job === "Director").map(d => ({
     name: d.name,
@@ -1060,9 +1063,9 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
     poster: (config.apiKeys?.rpdb && isRPDBEnabled(config)) ? posterProxyUrl : poster,
     background: background,
     logo: processLogo(logoUrl),
-    // filter out trailers with lang !== language. if none left return full array,
-    trailers: Utils.parseTrailers(movieData.videos).filter(trailer => trailer.lang === language).length > 0 ? Utils.parseTrailers(movieData.videos).filter(trailer => trailer.lang === language) : Utils.parseTrailers(movieData.videos),
-    trailerStreams: Utils.parseTrailerStream(movieData.videos).filter(trailer => trailer.lang === language).length > 0 ? Utils.parseTrailerStream(movieData.videos).filter(trailer => trailer.lang === language) : Utils.parseTrailerStream(movieData.videos),
+    // filter out trailers with lang !== langCode. if none left return full array,
+    trailers: Utils.parseTrailers(movieData.videos).filter(trailer => trailer.lang === langCode).length > 0 ? Utils.parseTrailers(movieData.videos).filter(trailer => trailer.lang === langCode) : Utils.parseTrailers(movieData.videos),
+    trailerStreams: Utils.parseTrailerStream(movieData.videos).filter(trailer => trailer.lang === langCode).length > 0 ? Utils.parseTrailerStream(movieData.videos).filter(trailer => trailer.lang === langCode) : Utils.parseTrailerStream(movieData.videos),
     links: links,
     behaviorHints: { defaultVideoId: kitsuId && idProvider === 'kitsu' ? `kitsu:${kitsuId}` : imdbId || stremioId, hasScheduledVideos: false },
     app_extras: { cast: Utils.parseCast(credits, castCount), directors: directorDetails, writers: writerDetails, watchProviders: watchProviders, releaseDates: movieData.release_dates, certification: certification }
@@ -1080,12 +1083,15 @@ async function buildTmdbSeriesResponse(stremioId, seriesData, language, config, 
 
   const idProvider = config.providers?.anime_id_provider || 'imdb';
 
+  // Extract language code for filtering (e.g., "en" from "en-US")
+  const langCode = language.split('-')[0];
+
   // Get artwork based on art provider preference
   const selectedPoster = Utils.selectTmdbImageByLang(images?.posters, config);
   const tmdbPosterUrl = selectedPoster?.file_path ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${selectedPoster?.file_path}` : poster_path ? `https://image.tmdb.org/t/p/w600_and_h900_bestv2${poster_path}` : `${host}/missing_poster.png`;
   const selectedBg = images?.backdrops?.find(b => b.iso_639_1 === 'xx')
     || images?.backdrops?.find(b => b.iso_639_1 === null)
-    || images?.backdrops?.find(b => b.iso_639_1 === language.split('-')[0])
+    || images?.backdrops?.find(b => b.iso_639_1 === langCode)
     || images?.backdrops?.[0];
   const tmdbBackgroundUrl = selectedBg?.file_path ? `https://image.tmdb.org/t/p/original${selectedBg?.file_path}` : backdrop_path ? `https://image.tmdb.org/t/p/original${backdrop_path}` : null;
   const selectedLogo = Utils.selectTmdbImageByLang(images?.logos, config);
@@ -1463,7 +1469,7 @@ async function buildTmdbSeriesResponse(stremioId, seriesData, language, config, 
     poster: (config.apiKeys?.rpdb && isRPDBEnabled(config)) ? posterProxyUrl : poster,
     background: background,
     logo: logoUrl,
-    trailers: Utils.parseTrailers(trailers),
+    trailers: Utils.parseTrailers(trailers).filter(trailer => trailer.lang === langCode).length > 0 ? Utils.parseTrailers(trailers).filter(trailer => trailer.lang === langCode) : Utils.parseTrailers(trailers),
     links: links,
     videos: videos,
     behaviorHints: {
