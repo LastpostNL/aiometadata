@@ -888,9 +888,22 @@ async function buildImdbSeriesResponse(stremioId, imdbData, enrichmentData = {},
     imdbData.description = Utils.addMetaProviderAttribution(imdbData.description, 'IMDB', config);
   }
   if (tmdbId){
-    const seriesData = await moviedb.tvInfo({ id: tmdbId, language: config.language, append_to_response: "content_ratings" }, config);
+    const seriesData = await moviedb.tvInfo({ id: tmdbId, language: config.language, append_to_response: "content_ratings,videos" }, config);
     imdbData.app_extras = imdbData.app_extras || {};
     imdbData.app_extras.certification = Utils.getTmdbTvCertificationForCountry(seriesData.content_ratings);
+    
+    // Add trailers from TMDB with intelligent fallback
+    if (seriesData.videos) {
+      const langCode = config.language.split('-')[0];
+      const allTrailers = Utils.parseTrailers(seriesData.videos);
+      const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
+      
+      // Intelligent fallback: user language -> English -> all trailers
+      const englishTrailers = allTrailers.filter(trailer => trailer.lang === 'en');
+      const finalTrailers = filteredTrailers.length > 0 ? filteredTrailers : (englishTrailers.length > 0 ? englishTrailers : allTrailers);
+      
+      imdbData.trailers = finalTrailers;
+    }
   }
 
   return imdbData;
@@ -939,10 +952,28 @@ async function buildImdbMovieResponse(stremioId, imdbData, enrichmentData = {}, 
     imdbData.description = Utils.addMetaProviderAttribution(imdbData.description, 'IMDB', config);
   }
   if (tmdbId){
-    const movieData = await moviedb.movieInfo({ id: tmdbId, language: config.language, append_to_response: "release_dates" }, config);
+    const movieData = await moviedb.movieInfo({ id: tmdbId, language: config.language, append_to_response: "release_dates,videos" }, config);
     imdbData.app_extras = imdbData.app_extras || {};
     imdbData.app_extras.releaseDates = movieData.release_dates;
     imdbData.app_extras.certification = Utils.getTmdbMovieCertificationForCountry(movieData.release_dates);
+    
+    // Add trailers from TMDB with intelligent fallback
+    if (movieData.videos) {
+      const langCode = config.language.split('-')[0];
+      const allTrailers = Utils.parseTrailers(movieData.videos);
+      const allTrailerStreams = Utils.parseTrailerStream(movieData.videos);
+      const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
+      const filteredTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === langCode);
+      
+      // Intelligent fallback: user language -> English -> all trailers
+      const englishTrailers = allTrailers.filter(trailer => trailer.lang === 'en');
+      const englishTrailerStreams = allTrailerStreams.filter(trailer => trailer.lang === 'en');
+      const finalTrailers = filteredTrailers.length > 0 ? filteredTrailers : (englishTrailers.length > 0 ? englishTrailers : allTrailers);
+      const finalTrailerStreams = filteredTrailerStreams.length > 0 ? filteredTrailerStreams : (englishTrailerStreams.length > 0 ? englishTrailerStreams : allTrailerStreams);
+      
+      imdbData.trailers = finalTrailers;
+      imdbData.trailerStreams = finalTrailerStreams;
+    }
   }
 
   return imdbData;
