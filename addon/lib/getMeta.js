@@ -1069,7 +1069,7 @@ async function buildTmdbMovieResponse(stremioId, movieData, language, config, us
     poster: (config.apiKeys?.rpdb && isRPDBEnabled(config)) ? posterProxyUrl : poster,
     background: background,
     logo: processLogo(logoUrl),
-    // filter out trailers with lang !== langCode. if none left return full array,
+    // Include trailers with matching language code. If none match, return all trailers as fallback
     trailers: filteredTrailers.length > 0 ? filteredTrailers : allTrailers,
     trailerStreams: filteredTrailerStreams.length > 0 ? filteredTrailerStreams : allTrailerStreams,
     links: links,
