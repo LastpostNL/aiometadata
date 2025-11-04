@@ -507,11 +507,13 @@ async function getMovieMeta(stremioId, preferredProvider, language, config, user
     try {
       const langCode = language.split('-')[0];
       const imageLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
+      const videoLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
       const movieData = await moviedb.movieInfo({ 
         id: allIds.tmdbId, 
         language, 
         append_to_response: "videos,credits,external_ids,images,translations,watch/providers,release_dates", 
-        include_image_language: imageLanguages 
+        include_image_language: imageLanguages,
+        include_video_language: videoLanguages
       }, config);
       
       if (movieData) {
@@ -562,11 +564,13 @@ async function getSeriesMeta(preferredProvider, stremioId, language, config, use
     try {
       const langCode = language.split('-')[0];
       const imageLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
+      const videoLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
       const seriesData = await moviedb.tvInfo({ 
         id: allIds.tmdbId, 
         language, 
         append_to_response: "videos,credits,external_ids,images,translations,watch/providers,content_ratings", 
-        include_image_language: imageLanguages 
+        include_image_language: imageLanguages,
+        include_video_language: videoLanguages
       }, config);
       
       if (seriesData) {
@@ -635,11 +639,13 @@ async function getSeriesMeta(preferredProvider, stremioId, language, config, use
     try {
       const langCode = language.split('-')[0];
       const imageLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
+      const videoLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
       const seriesData = await moviedb.tvInfo({ 
         id, 
         language, 
         append_to_response: "videos,credits,external_ids,images,translations,watch/providers", 
-        include_image_language: imageLanguages 
+        include_image_language: imageLanguages,
+        include_video_language: videoLanguages
       }, config);
       
       if (seriesData) {
@@ -705,12 +711,13 @@ async function getAnimeMeta(preferredProvider, stremioId, language, config, user
       if (preferredProvider === 'tmdb' && allIds?.tmdbId) {
         const langCode = language.split('-')[0];
         const imageLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
+        const videoLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
         if (type === 'movie') {
           
-          const movieData = await moviedb.movieInfo({ id: allIds.tmdbId, language, append_to_response: "videos,credits,external_ids,images,translations,watch/providers", include_image_language: imageLanguages }, config);
+          const movieData = await moviedb.movieInfo({ id: allIds.tmdbId, language, append_to_response: "videos,credits,external_ids,images,translations,watch/providers", include_image_language: imageLanguages, include_video_language: videoLanguages }, config);
           return await buildTmdbMovieResponse(stremioId, movieData, language, config, userUUID, { allIds }, isAnime);
         } else {
-          const seriesData = await moviedb.tvInfo({ id: allIds.tmdbId, language, append_to_response: "videos,credits,external_ids,images,translations,watch/providers", include_image_language: imageLanguages }, config);
+          const seriesData = await moviedb.tvInfo({ id: allIds.tmdbId, language, append_to_response: "videos,credits,external_ids,images,translations,watch/providers", include_image_language: imageLanguages, include_video_language: videoLanguages }, config);
             return await buildTmdbSeriesResponse(stremioId, seriesData, language, config, userUUID, { allIds }, isAnime, includeVideos);
         }
       }
@@ -888,13 +895,14 @@ async function buildImdbSeriesResponse(stremioId, imdbData, enrichmentData = {},
     imdbData.description = Utils.addMetaProviderAttribution(imdbData.description, 'IMDB', config);
   }
   if (tmdbId){
-    const seriesData = await moviedb.tvInfo({ id: tmdbId, language: config.language, append_to_response: "content_ratings,videos" }, config);
+    const langCode = config.language.split('-')[0];
+    const videoLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
+    const seriesData = await moviedb.tvInfo({ id: tmdbId, language: config.language, append_to_response: "content_ratings,videos", include_video_language: videoLanguages }, config);
     imdbData.app_extras = imdbData.app_extras || {};
     imdbData.app_extras.certification = Utils.getTmdbTvCertificationForCountry(seriesData.content_ratings);
     
     // Add trailers from TMDB with intelligent fallback
     if (seriesData.videos) {
-      const langCode = config.language.split('-')[0];
       const allTrailers = Utils.parseTrailers(seriesData.videos);
       const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
       
@@ -952,14 +960,15 @@ async function buildImdbMovieResponse(stremioId, imdbData, enrichmentData = {}, 
     imdbData.description = Utils.addMetaProviderAttribution(imdbData.description, 'IMDB', config);
   }
   if (tmdbId){
-    const movieData = await moviedb.movieInfo({ id: tmdbId, language: config.language, append_to_response: "release_dates,videos" }, config);
+    const langCode = config.language.split('-')[0];
+    const videoLanguages = Array.from(new Set([langCode, 'en', 'null'])).join(',');
+    const movieData = await moviedb.movieInfo({ id: tmdbId, language: config.language, append_to_response: "release_dates,videos", include_video_language: videoLanguages }, config);
     imdbData.app_extras = imdbData.app_extras || {};
     imdbData.app_extras.releaseDates = movieData.release_dates;
     imdbData.app_extras.certification = Utils.getTmdbMovieCertificationForCountry(movieData.release_dates);
     
     // Add trailers from TMDB with intelligent fallback
     if (movieData.videos) {
-      const langCode = config.language.split('-')[0];
       const allTrailers = Utils.parseTrailers(movieData.videos);
       const allTrailerStreams = Utils.parseTrailerStream(movieData.videos);
       const filteredTrailers = allTrailers.filter(trailer => trailer.lang === langCode);
